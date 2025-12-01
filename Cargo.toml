@@ -1,0 +1,19 @@
+[package]
+name = "reports-to-llm"
+version = "1.0.0"
+edition = "2021"
+
+[dependencies]
+# For ergonomic error handling
+anyhow = "1.0"
+# For recursive directory traversal
+walkdir = "2.3"
+# For DOCX file parsing
+docx-rust = "0.1.10"
+# For robust RTF-to-text conversion
+rtf-parser = "0.1"
+# For logging (console + file)
+log = "0.4"
+simplelog = "0.12"
+# For manual DOCX extraction as fallback
+zip = "0.6"
