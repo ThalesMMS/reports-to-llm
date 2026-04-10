@@ -154,6 +154,10 @@ During execution, you'll see progress information:
 
 Because medical reports may contain sensitive information, the repository does not include a bundled sample dataset. The commands below create **synthetic** local fixtures so you can verify the pipeline without real patient data.
 
+Quickstart prerequisites:
+- Rust and Cargo, as listed in [Installation](#installation).
+- Python 3.7 or later available as a working system executable named `python3`. The DOCX fixture block uses only standard library modules (`pathlib.Path` and `zipfile`), so your Python installation must include those modules and allow the `python3 <<'PY'` snippet to run.
+
 ```bash
 # Start from a clean working tree state
 find output -maxdepth 1 -type f -name 'result_*.txt' -delete 2>/dev/null || true
