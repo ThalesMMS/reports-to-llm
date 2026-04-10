@@ -1,17 +1,21 @@
 # Reports to LLM
 
-A Rust-based tool for converting and normalizing medical reports from DOCX/RTF formats into clean, structured plain text optimized for Large Language Models (LLM) and Retrieval-Augmented Generation (RAG) systems.
+A Rust-based tool for converting and normalizing local medical reports from DOCX/RTF into clean, structured plain text. It is useful as a preprocessing step for downstream LLM/RAG experiments, search, or corpus curation, but it is not a de-identification tool, a clinical system, or a model evaluation benchmark.
 
 ## Table of Contents
 
 - [Overview](#overview)
+- [Intended Use, Data Provenance, and Safety](#intended-use-data-provenance-and-safety)
 - [Features](#features)
 - [Installation](#installation)
 - [Usage](#usage)
+- [Reproducibility Quickstart](#reproducibility-quickstart)
 - [How It Works](#how-it-works)
+- [Expected Input / Output Example](#expected-input--output-example)
 - [Output Format](#output-format)
 - [Project Structure](#project-structure)
 - [Testing](#testing)
+- [Limitations and Evaluation Caveats](#limitations-and-evaluation-caveats)
 - [Troubleshooting](#troubleshooting)
 - [Dependencies](#dependencies)
 
@@ -27,11 +31,21 @@ Medical reports often come in various document formats (DOCX, RTF) with inconsis
 4. **Structuring content** into consistent, readable sections
 5. **Aggregating results** into manageable output files without splitting individual reports
 
-The resulting clean text is ideal for:
-- Training or fine-tuning LLMs on medical data
-- Building RAG systems for medical knowledge retrieval
-- Creating searchable medical document databases
-- Text analysis and NLP applications
+The resulting clean text can be useful as a preprocessing step for:
+- Building research corpora from locally held DOCX/RTF reports
+- Feeding downstream LLM or RAG experiments after separate governance review
+- Creating searchable internal text collections
+- Text analysis and NLP prototyping
+
+---
+
+## Intended Use, Data Provenance, and Safety
+
+- **Scope**: this repository converts DOCX/RTF report files into normalized plain text. It does **not** perform diagnosis, recommendation generation, or clinical quality assurance.
+- **Data provenance**: the repository does not ship a public patient dataset. All outputs depend on the local input files that the operator places in `./docs/`, so provenance, completeness, and formatting quality vary by source institution and reporting template.
+- **Privacy**: if the source reports contain names, identifiers, or other protected health information, the converted text may still contain that information. This tool does **not** de-identify or anonymize reports.
+- **Research / educational use only**: use the generated text as an intermediate artifact for research, tooling, or documentation workflows. Do **not** use the output on its own for clinical decision-making, diagnosis, or treatment.
+- **Traceability**: for any downstream study, keep the original source documents, the exact commit used, and a record of the commands run so that text extraction decisions can be audited later.
 
 ---
 
@@ -136,6 +150,77 @@ During execution, you'll see progress information:
 
 ---
 
+## Reproducibility Quickstart
+
+Because medical reports may contain sensitive information, the repository does not include a bundled sample dataset. The commands below create **synthetic** local fixtures so you can verify the pipeline without real patient data.
+
+Quickstart prerequisites:
+- Rust and Cargo, as listed in [Installation](#installation).
+- Python 3.7 or later available as a working system executable named `python3`. The DOCX fixture block uses only standard library modules (`pathlib.Path` and `zipfile`), so your Python installation must include those modules and allow the `python3 <<'PY'` snippet to run.
+
+```bash
+# Start from a clean working tree state
+find output -maxdepth 1 -type f -name 'result_*.txt' -delete 2>/dev/null || true
+rm -f log.txt
+mkdir -p docs
+
+# Minimal synthetic RTF example
+cat > docs/synthetic-report.rtf <<'EOF'
+{\rtf1\ansi\deff0{\fonttbl{\f0 Arial;}}
+\b TOMOGRAFIA DE TÓRAX\b0\par
+TÉCNICA DO EXAME: Cortes axiais sem contraste.\par
+ASPECTOS OBSERVADOS: Pequeno nódulo sólido no lobo superior direito.\par
+IMPRESSÃO DIAGNÓSTICA: Achado inespecífico.\par
+}
+EOF
+
+# Minimal synthetic DOCX example written as a ZIP container
+python3 - <<'PY'
+from pathlib import Path
+from zipfile import ZipFile, ZIP_DEFLATED
+
+docx_path = Path("docs/synthetic-report.docx")
+document_xml = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>
+<w:p><w:r><w:t>ULTRASSONOGRAFIA ABDOMINAL</w:t></w:r></w:p>
+<w:p><w:r><w:t>TÉCNICA DO EXAME: Estudo convencional.</w:t></w:r></w:p>
+<w:p><w:r><w:t>ASPECTOS OBSERVADOS: Fígado sem alterações focais.</w:t></w:r></w:p>
+<w:p><w:r><w:t>IMPRESSÃO DIAGNÓSTICA: Sem achados agudos.</w:t></w:r></w:p>
+</w:body></w:document>
+"""
+content_types = """<?xml version="1.0" encoding="UTF-8"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+</Types>
+"""
+rels = """<?xml version="1.0" encoding="UTF-8"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>
+"""
+
+with ZipFile(docx_path, "w", ZIP_DEFLATED) as zf:
+    zf.writestr("[Content_Types].xml", content_types)
+    zf.writestr("_rels/.rels", rels)
+    zf.writestr("word/document.xml", document_xml)
+PY
+
+# Run the conversion
+cargo run --release
+
+# Inspect the first generated file
+sed -n '1,80p' output/result_1.txt
+
+# Run regression-style output checks
+cargo test --test output_quality -- --nocapture
+```
+
+For a reproducible audit trail, record the commit SHA, the exact command sequence above, and a checksum of the local input files used in your own experiments.
+
+---
+
 ## How It Works
 
 ### Processing Pipeline
@@ -215,6 +300,40 @@ RTF files often use Windows-1252 encoding for special characters. The tool maps 
 | `\'e2`   | 0xE2         | â               |
 | `\'ea`   | 0xEA         | ê               |
 | `\'fa`   | 0xFA         | ú               |
+
+---
+
+## Expected Input / Output Example
+
+The example below is intentionally **synthetic**. It demonstrates the kind of cleanup the tool performs without using real patient data.
+
+### Example input snippet (RTF)
+
+```rtf
+{\rtf1\ansi\deff0{\fonttbl{\f0 Arial;}}
+\b TOMOGRAFIA DE TÓRAX\b0\par
+TÉCNICA DO EXAME: Cortes axiais sem contraste.\par
+ASPECTOS OBSERVADOS: Pequeno nódulo sólido no lobo superior direito.\par
+IMPRESSÃO DIAGNÓSTICA: Achado inespecífico.\par
+}
+```
+
+### Expected normalized output
+
+```text
+TOMOGRAFIA DE TÓRAX
+
+Técnica do exame:
+Cortes axiais sem contraste.
+
+Aspectos observados:
+Pequeno nódulo sólido no lobo superior direito.
+
+IMPRESSÃO:
+Achado inespecífico.
+```
+
+This example shows the expected behavior: removal of RTF formatting commands, preservation of accented characters, section-header normalization, and stable plain-text output suitable for downstream inspection.
 
 ---
 
@@ -314,6 +433,8 @@ cargo test
 cargo test --test output_quality -- --nocapture
 ```
 
+These tests are best understood as **regression checks on formatting quality**. They help detect leaked RTF/XML artifacts, spacing problems, and missing outputs, but they do not establish extraction recall, semantic accuracy, or clinical validity.
+
 ### Test Descriptions
 
 | Test | What It Checks |
@@ -349,6 +470,17 @@ cargo test --test output_quality -- --nocapture
   ✅ ALL TESTS PASSED!
 ========================================
 ```
+
+---
+
+## Limitations and Evaluation Caveats
+
+- **No de-identification**: the pipeline does not remove names, IDs, accession numbers, dates, or other PHI/PII from source reports.
+- **Format-specific scope**: the current implementation targets text extraction from DOCX and RTF. It does not perform OCR on scanned PDFs or images.
+- **Template dependence**: section normalization is tuned to common report headings present in the codebase (for example, radiology-style headings in Portuguese). Other specialties, institutions, or languages may produce less structured output.
+- **Fallback parsers may be partial**: malformed or unusual DOCX/RTF files can still yield incomplete extraction or be skipped and logged in `log.txt`.
+- **No benchmark claims**: the repository does not include a public evaluation corpus or benchmark numbers, so output quality should be verified on representative local data before downstream research use.
+- **Manual review still required**: before using converted text in a study or internal pipeline, spot-check outputs against the original documents to confirm that key sections, accents, and report boundaries were preserved.
 
 ---
 
