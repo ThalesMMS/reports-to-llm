@@ -46,6 +46,7 @@ The resulting clean text can be useful as a preprocessing step for:
 - **Privacy**: if the source reports contain names, identifiers, or other protected health information, the converted text may still contain that information. This tool does **not** de-identify or anonymize reports.
 - **Research / educational use only**: use the generated text as an intermediate artifact for research, tooling, or documentation workflows. Do **not** use the output on its own for clinical decision-making, diagnosis, or treatment.
 - **Traceability**: for any downstream study, keep the original source documents, the exact commit used, and a record of the commands run so that text extraction decisions can be audited later.
+- **Recommended practice**: maintain a private provenance manifest for each run or dataset snapshot, including source location, selection criteria, date range, file counts, checksum strategy, and spot-check notes. A starter template is provided in [`docs/provenance-template.md`](docs/provenance-template.md).
 
 ---
 
@@ -218,6 +219,8 @@ cargo test --test output_quality -- --nocapture
 ```
 
 For a reproducible audit trail, record the commit SHA, the exact command sequence above, and a checksum of the local input files used in your own experiments.
+
+A ready-to-fill private provenance checklist is available at [`docs/provenance-template.md`](docs/provenance-template.md). It is intentionally designed for local use, so you can document dataset origin, date ranges, file counts, checksums, and reviewer notes without publishing patient-linked details.
 
 ---
 
