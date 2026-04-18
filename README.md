@@ -85,11 +85,15 @@ The resulting clean text can be useful as a preprocessing step for:
 
 ### Setup
 
-1. **Clone the repository**:
+1. **Clone the current private development repository**:
    ```bash
    git clone https://github.com/ThalesMMS/reports-to-llm.git
    cd reports-to-llm
    ```
+
+   This repository is private. You must have GitHub access to `ThalesMMS/reports-to-llm` and authenticate with appropriate permissions before cloning. Unauthenticated or unauthorized clone attempts typically fail with a 404 or permission error. If needed, clone with SSH (`git@github.com:ThalesMMS/reports-to-llm.git`) using configured SSH keys, or use HTTPS with a Personal Access Token (PAT).
+
+   The Cargo package and binary name remain `reports-to-llm`, but reproducibility records for this repository should point to the exact `reports-to-llm` commit you used.
 
 2. **Build the project**:
    ```bash
